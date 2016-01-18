@@ -12,7 +12,7 @@ Telly can be installed by adding it as a dependency in `mix.exs`:
 
 ```elixir
 defp deps do
-  [{:telly, github: "https://github.com/trarbr/telly"}]
+  [{:telly, github: "trarbr/telly"}]
 end
 ```
 
