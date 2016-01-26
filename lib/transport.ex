@@ -7,11 +7,8 @@ defmodule Telly.Transport do
   end
 
   def default_config() do
-    [serializer: Phoenix.Transports.WebSocketSerializer]
-  end
-
-  def handlers() do
-    %{telly: Telly.Transport}
+    [serializer: Phoenix.Transports.WebSocketSerializer,
+     telly: Telly.Transport]
   end
 
   def init(ref, tcp_socket, tcp_transport, opts) do
@@ -47,7 +44,7 @@ defmodule Telly.Transport do
   end
 
   def handle_info({:tcp, tcp_socket, data}, %{tcp_transport: tcp_transport, endpoint: endpoint, handler: handler} = state) do
-    params = 
+    params =
       String.rstrip(data)
       |> Poison.decode!()
 
@@ -72,7 +69,7 @@ defmodule Telly.Transport do
   end
 
   def handle_info({:tcp, _tcp_socket, data}, %{socket: socket} = state) do
-    msg = 
+    msg =
       String.rstrip(data)
       |> socket.serializer.decode!([])
 
@@ -113,7 +110,7 @@ defmodule Telly.Transport do
         Phoenix.Channel.Server.close(pid)
       end
     end
-    :ok    
+    :ok
   end
 
   defp encode_reply(reply, state) do
