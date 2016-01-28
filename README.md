@@ -16,6 +16,9 @@ defp deps do
 end
 ```
 
+The master branch supports Phoenix 1.1 and up. If you are stuck with Phoenix 1.0,
+use the branch `phoenix-1.0`.
+
 Setup
 -----
 
