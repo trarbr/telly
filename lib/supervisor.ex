@@ -7,17 +7,17 @@ defmodule Telly.Supervisor do
   end
 
   def init(endpoint) do
-    handlers =
+    socket_handlers =
       for {path, socket} <- endpoint.__sockets__,
           {_transport, {module, config}} <- socket.__transports__,
-          handler = config[:telly],
+          transport_handler = config[:telly],
           serializer = Keyword.fetch!(config, :serializer),
           into: %HashDict{},
           do: {path, {socket, serializer}}
 
     telly_spec = :ranch.child_spec(make_ref(), 10, :ranch_tcp, [port: 5555], Telly.Transport, [
       endpoint: endpoint,
-      handlers: handlers
+      handlers: socket_handlers
     ])
     children = [telly_spec]
 
