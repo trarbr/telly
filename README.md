@@ -2,6 +2,7 @@ Telly
 =====
 
 Telly is a proof of concept telnet transport for the [Phoenix framework](http://www.phoenixframework.org/).
+There's a video demo on [YouTube](https://youtu.be/uV6Sx7vQqbI).
 
 Please note that Telly is a work in progress: use at your own risk.
 
@@ -22,8 +23,8 @@ use the branch `phoenix-1.0`.
 Setup
 -----
 
-(If you just want to test it quickly, you can clone 
-[this demo](https://github.com/trarbr/phoenix_chat_example) and skip to 
+(If you just want to test it quickly, you can clone
+[this demo repository](https://github.com/trarbr/phoenix_chat_example) and skip to
 "Try it out".)
 
 Add the Telly supervisor to your Phoenix application's top-level supervision tree,
@@ -36,7 +37,7 @@ defmodule Chat do
 
     children = [
     # Start the endpoint when the application starts
-    supervisor(Chat.Endpoint, []),      
+    supervisor(Chat.Endpoint, []),
     # Start the Ecto repository
     worker(Chat.Repo, []),
     # Start the Telly supervisor
@@ -44,7 +45,7 @@ defmodule Chat do
     ]
 
     opts = [strategy: :one_for_one, name: Chat.Supervisor]
-    Supervisor.start_link(children, opts)   
+    Supervisor.start_link(children, opts)
   end
   # ... snip ...
 end
@@ -119,7 +120,7 @@ ok
 
 If connect/2 fails, it will respond with "error" instead, and close the connection.
 
-If the server responds with "ok", you are now connected, and can join a topic by 
+If the server responds with "ok", you are now connected, and can join a topic by
 sending an appropriately formatted JSON message:
 
 ```
@@ -153,5 +154,5 @@ About
 -----
 
 Telly was mainly written for educational purposes. I wanted to learn how
-to write a new transport myself. I hope it can also help others understand 
+to write a new transport myself. I hope it can also help others understand
 what is needed to create new transports.
