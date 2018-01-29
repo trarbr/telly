@@ -15,10 +15,17 @@ defmodule Telly.Supervisor do
           into: %{},
           do: {path, {socket, serializer}}
 
-    telly_spec = :ranch.child_spec(make_ref(), 10, :ranch_tcp, [port: 5555], Telly.Transport, [
-      endpoint: endpoint,
-      handlers: socket_handlers
-    ])
+    telly_spec =
+      :ranch.child_spec(
+        make_ref(),
+        10,
+        :ranch_tcp,
+        [port: 5555],
+        Telly.Transport,
+        endpoint: endpoint,
+        handlers: socket_handlers
+      )
+
     children = [telly_spec]
 
     Logger.info("Running Telly on port 5555")
