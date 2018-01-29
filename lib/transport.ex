@@ -3,7 +3,7 @@ defmodule Telly.Transport do
   @behaviour :ranch_protocol
 
   def start_link(ref, tcp_socket, tcp_transport, opts \\ []) do
-    :proc_lib.start_link(__MODULE__, :init, [ref, tcp_socket, tcp_transport, opts])
+    :proc_lib.start_link(__MODULE__, :init, [[ref, tcp_socket, tcp_transport, opts]])
   end
 
   def default_config() do
@@ -11,7 +11,7 @@ defmodule Telly.Transport do
      telly: Telly.Transport]
   end
 
-  def init(ref, tcp_socket, tcp_transport, opts) do
+  def init([ref, tcp_socket, tcp_transport, opts]) do
     :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
     :ok = tcp_transport.setopts(tcp_socket, [{:active, :once}])
@@ -25,7 +25,7 @@ defmodule Telly.Transport do
   end
 
   def handle_info({:tcp, _tcp_socket, data}, %{handlers: handlers} = state) do
-    path = String.rstrip(data)
+    path = String.trim_trailing(data)
 
     case Map.fetch(handlers, path) do
       {:ok, {handler, serializer}} ->
@@ -45,7 +45,7 @@ defmodule Telly.Transport do
 
   def handle_info({:tcp, tcp_socket, data}, %{tcp_transport: tcp_transport, endpoint: endpoint, handler: handler} = state) do
     params =
-      String.rstrip(data)
+      String.trim_trailing(data)
       |> Poison.decode!()
 
     case Phoenix.Socket.Transport.connect(endpoint, handler, :telnet, __MODULE__, state.serializer, params) do
@@ -70,7 +70,7 @@ defmodule Telly.Transport do
 
   def handle_info({:tcp, _tcp_socket, data}, %{socket: socket} = state) do
     msg =
-      String.rstrip(data)
+      String.trim_trailing(data)
       |> socket.serializer.decode!([])
 
     case Phoenix.Socket.Transport.dispatch(msg, state.channels, state.socket) do

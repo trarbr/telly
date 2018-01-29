@@ -9,8 +9,8 @@ defmodule Telly.Supervisor do
   def init(endpoint) do
     socket_handlers =
       for {path, socket} <- endpoint.__sockets__,
-          {_transport, {module, config}} <- socket.__transports__,
-          transport_handler = config[:telly],
+          {_transport, {_module, config}} <- socket.__transports__,
+          Telly.Transport == config[:telly],
           serializer = Keyword.fetch!(config, :serializer),
           into: %{},
           do: {path, {socket, serializer}}
