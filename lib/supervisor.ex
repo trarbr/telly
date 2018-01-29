@@ -21,7 +21,7 @@ defmodule Telly.Supervisor do
         10,
         :ranch_tcp,
         [port: 5555],
-        Telly.Transport,
+        Telly.Protocol,
         endpoint: endpoint,
         handlers: socket_handlers
       )

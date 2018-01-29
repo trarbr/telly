@@ -1,66 +1,33 @@
 defmodule Telly.Transport do
-  use GenServer
-  @behaviour :ranch_protocol
+  @behaviour Phoenix.Socket.Transport
 
-  def start_link(ref, tcp_socket, tcp_transport, opts \\ []) do
-    :proc_lib.start_link(__MODULE__, :init, [[ref, tcp_socket, tcp_transport, opts]])
-  end
+  alias Telly.Transport
 
   def default_config() do
     [serializer: Phoenix.Transports.WebSocketSerializer, telly: Telly.Transport]
   end
 
-  def init([ref, tcp_socket, tcp_transport, opts]) do
-    :ok = :proc_lib.init_ack({:ok, self()})
-    :ok = :ranch.accept_ack(ref)
-    :ok = tcp_transport.setopts(tcp_socket, [{:active, :once}])
+  defstruct endpoint: nil,
+            handler: nil,
+            serializer: nil,
+            socket: nil,
+            channels: %{},
+            channels_inverse: %{}
 
-    state = %{
-      # ranch_tcp in this case
-      tcp_transport: tcp_transport,
-      # the socket established by ranch
-      tcp_socket: tcp_socket,
-      # the Phoenix Endpoint
-      endpoint: Keyword.fetch!(opts, :endpoint),
-      # all sockets with a :telly handler
-      handlers: Keyword.fetch!(opts, :handlers)
+  def new(endpoint, handler, serializer) do
+    %Transport{
+      endpoint: endpoint,
+      handler: handler,
+      serializer: serializer
     }
-
-    :gen_server.enter_loop(__MODULE__, [], state)
   end
 
-  def handle_info({:tcp, _tcp_socket, data}, %{handlers: handlers} = state) do
-    path = String.trim_trailing(data)
-
-    case Map.fetch(handlers, path) do
-      {:ok, {handler, serializer}} ->
-        state = %{
-          tcp_transport: state.tcp_transport,
-          tcp_socket: state.tcp_socket,
-          endpoint: state.endpoint,
-          handler: handler,
-          serializer: serializer
-        }
-
-        :ok = state.tcp_transport.setopts(state.tcp_socket, active: :once)
-        {:noreply, state}
-
-      :error ->
-        {:stop, :shutdown, state}
-    end
-  end
-
-  def handle_info(
-        {:tcp, tcp_socket, data},
-        %{tcp_transport: tcp_transport, endpoint: endpoint, handler: handler} = state
-      ) do
-    params =
-      String.trim_trailing(data)
-      |> Poison.decode!()
+  def connect(data, state) do
+    params = Poison.decode!(data)
 
     case Phoenix.Socket.Transport.connect(
-           endpoint,
-           handler,
+           state.endpoint,
+           state.handler,
            :telnet,
            __MODULE__,
            state.serializer,
@@ -71,32 +38,20 @@ defmodule Telly.Transport do
         Process.flag(:trap_exit, true)
         if socket.id, do: socket.endpoint.subscribe(self(), socket.id, link: true)
 
-        state = %{
-          tcp_transport: tcp_transport,
-          tcp_socket: tcp_socket,
-          socket: socket,
-          channels: %{},
-          channels_inverse: %{}
-        }
-
-        :ok = tcp_transport.setopts(tcp_socket, active: :once)
-        tcp_transport.send(tcp_socket, "ok\r\n")
-        {:noreply, state}
+        state = %{state | socket: socket}
+        {:ok, state}
 
       :error ->
-        tcp_transport.send(tcp_socket, "error\r\n")
-        {:stop, :shutdown, state}
+        :error
     end
   end
 
-  def handle_info({:tcp, _tcp_socket, data}, %{socket: socket} = state) do
-    msg =
-      String.trim_trailing(data)
-      |> socket.serializer.decode!([])
+  def dispatch(data, state) do
+    msg = state.socket.serializer.decode!(data, [])
 
     case Phoenix.Socket.Transport.dispatch(msg, state.channels, state.socket) do
       :noreply ->
-        {:noreply, state}
+        :noop
 
       {:reply, reply_msg} ->
         encode_reply(reply_msg, state)
@@ -110,50 +65,29 @@ defmodule Telly.Transport do
     end
   end
 
-  def handle_info({:EXIT, channel_pid, reason}, state) do
+  def on_exit(channel_pid, reason, state) do
     case Map.get(state.channels_inverse, channel_pid) do
       nil ->
-        {:noreply, state}
+        :noop
 
       topic ->
         state = delete(state, topic, channel_pid)
 
-        Phoenix.Socket.Transport.on_exit_message(topic, reason)
+        topic
+        |> Phoenix.Socket.Transport.on_exit_message(reason)
         |> encode_reply(state)
     end
   end
 
-  def handle_info(%Phoenix.Socket.Broadcast{event: "disconnect"}, state) do
-    {:stop, :shutdown, state}
-  end
-
-  def handle_info({:socket_push, _encoding, _encoded_payload} = msg, state) do
-    reply(msg, state)
-  end
-
-  def terminate(_reason, state) do
-    if Map.get(state, :channels_inverse) do
-      for {pid, _} <- state.channels_inverse do
-        Phoenix.Channel.Server.close(pid)
-      end
+  def close(state) do
+    for {pid, _} <- state.channels_inverse do
+      Phoenix.Channel.Server.close(pid)
     end
-
-    :ok
   end
 
   defp encode_reply(reply, state) do
-    state.socket.serializer.encode!(reply)
-    |> reply(state)
-  end
-
-  defp reply(
-         {:socket_push, _encoding, encoded_payload},
-         %{tcp_transport: transport, tcp_socket: socket} = state
-       ) do
-    transport.send(socket, encoded_payload)
-    transport.send(socket, "\r\n")
-    :ok = transport.setopts(socket, active: :once)
-    {:noreply, state}
+    {:socket_push, _encoding, payload} = state.socket.serializer.encode!(reply)
+    {:socket_push, payload, state}
   end
 
   defp put(state, topic, channel_pid) do
