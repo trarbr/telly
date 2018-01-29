@@ -7,6 +7,7 @@ defmodule Telly.Protocol do
             socket: nil,
             endpoint: nil,
             handlers: nil,
+            status: :awaiting_handler,
             handler_state: nil
 
   def start_link(ref, socket, transport, opts \\ []) do
@@ -32,14 +33,13 @@ defmodule Telly.Protocol do
     :gen_server.enter_loop(__MODULE__, [], state)
   end
 
-  # handler not found
-  def handle_info({:tcp, _socket, data}, %{handlers: handlers, handler_state: nil} = state) do
+  def handle_info({:tcp, _socket, data}, %{status: :awaiting_handler} = state) do
     path = String.trim_trailing(data)
 
-    case Map.fetch(handlers, path) do
+    case Map.fetch(state.handlers, path) do
       {:ok, {handler, serializer}} ->
         handler_state = Transport.new(state.endpoint, handler, serializer)
-        state = %{state | handler_state: handler_state}
+        state = %{state | handler_state: handler_state, status: :awaiting_connect}
 
         :ok = state.transport.setopts(state.socket, active: :once)
         {:noreply, state}
@@ -49,20 +49,16 @@ defmodule Telly.Protocol do
     end
   end
 
-  # not yet connected to socket
-  def handle_info(
-        {:tcp, socket, data},
-        %{transport: transport, handler_state: %{socket: nil}} = state
-      ) do
+  def handle_info({:tcp, socket, data}, %{status: :awaiting_connect} = state) do
     data = String.trim_trailing(data)
 
     case Transport.connect(data, state.handler_state) do
       {:ok, handler_state} ->
-        state = %{state | handler_state: handler_state}
+        state = %{state | handler_state: handler_state, status: :connected}
         do_socket_push("ok", state)
 
       :error ->
-        transport.send(socket, "error\r\n")
+        state.transport.send(socket, "error\r\n")
         {:stop, :shutdown, state}
     end
   end
