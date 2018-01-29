@@ -12,7 +12,7 @@ defmodule Telly.Supervisor do
           {_transport, {module, config}} <- socket.__transports__,
           transport_handler = config[:telly],
           serializer = Keyword.fetch!(config, :serializer),
-          into: %HashDict{},
+          into: %{},
           do: {path, {socket, serializer}}
 
     telly_spec = :ranch.child_spec(make_ref(), 10, :ranch_tcp, [port: 5555], Telly.Transport, [

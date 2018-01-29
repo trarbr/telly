@@ -7,14 +7,14 @@ defmodule Telly.Mixfile do
      elixir: "~> 1.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps]
+     deps: deps()]
   end
 
   # Configuration for the OTP application
   #
   # Type `mix help compile.app` for more information
   def application do
-    [mod: {Telly, []}, applications: [:logger, :ranch]]
+    [applications: [:logger, :ranch]]
   end
 
   # Dependencies can be Hex packages:
@@ -28,9 +28,9 @@ defmodule Telly.Mixfile do
   # Type `mix help deps` for more examples and options
   defp deps do
     [
-      {:ranch, "~> 1.1"},
-      {:poison, "~> 1.5"},
-      {:phoenix, "~> 1.0"}
+      {:ranch, "~> 1.3"},
+      {:poison, "~> 3.0"},
+      {:phoenix, "~> 1.3"}
     ]
   end
 end

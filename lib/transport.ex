@@ -27,7 +27,7 @@ defmodule Telly.Transport do
   def handle_info({:tcp, _tcp_socket, data}, %{handlers: handlers} = state) do
     path = String.rstrip(data)
 
-    case HashDict.fetch(handlers, path) do
+    case Map.fetch(handlers, path) do
       {:ok, {handler, serializer}} ->
         state = %{
           tcp_transport: state.tcp_transport,
@@ -56,8 +56,8 @@ defmodule Telly.Transport do
           tcp_transport: tcp_transport,
           tcp_socket: tcp_socket,
           socket: socket,
-          channels: HashDict.new(),
-          channels_inverse: HashDict.new()
+          channels: %{},
+          channels_inverse: %{}
         }
         :ok = tcp_transport.setopts(tcp_socket, [active: :once])
         tcp_transport.send(tcp_socket, "ok\r\n")
@@ -87,7 +87,7 @@ defmodule Telly.Transport do
   end
 
   def handle_info({:EXIT, channel_pid, reason}, state) do
-    case HashDict.get(state.channels_inverse, channel_pid) do
+    case Map.get(state.channels_inverse, channel_pid) do
       nil -> {:noreply, state}
       topic ->
         state = delete(state, topic, channel_pid)
@@ -105,7 +105,7 @@ defmodule Telly.Transport do
   end
 
   def terminate(_reason, state) do
-    if HashDict.get(state, :channels_inverse) do
+    if Map.get(state, :channels_inverse) do
       for {pid, _} <- state.channels_inverse do
         Phoenix.Channel.Server.close(pid)
       end
@@ -126,12 +126,12 @@ defmodule Telly.Transport do
   end
 
   defp put(state, topic, channel_pid) do
-    %{state | channels: HashDict.put(state.channels, topic, channel_pid),
-              channels_inverse: HashDict.put(state.channels_inverse, channel_pid, topic)}
+    %{state | channels: Map.put(state.channels, topic, channel_pid),
+              channels_inverse: Map.put(state.channels_inverse, channel_pid, topic)}
   end
 
   defp delete(state, topic, channel_pid) do
-    %{state | channels: HashDict.delete(state.channels, topic),
-              channels_inverse: HashDict.delete(state.channels_inverse, channel_pid)}
+    %{state | channels: Map.delete(state.channels, topic),
+              channels_inverse: Map.delete(state.channels_inverse, channel_pid)}
   end
 end
