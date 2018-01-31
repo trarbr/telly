@@ -1,11 +1,5 @@
 defmodule Telly.Transport do
-  @behaviour Phoenix.Socket.Transport
-
   alias Telly.Transport
-
-  def default_config() do
-    [serializer: Phoenix.Transports.WebSocketSerializer, telly: Telly.Transport]
-  end
 
   defstruct endpoint: nil,
             handler: nil,
